@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator DFT & IDFT 2D</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; }
+        .container { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        
+        /* Tab Navigation */
+        .tab-nav { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #ddd; padding-bottom: 15px; }
+        .tab-nav button { background-color: transparent; border: none; font-size: 1.3em; padding: 10px 20px; cursor: pointer; color: #888; transition: color 0.3s, border-bottom 0.3s; border-bottom: 3px solid transparent; }
+        .tab-nav button.active-dft { color: #0056b3; border-bottom-color: #007BFF; }
+        .tab-nav button.active-idft { color: #218838; border-bottom-color: #28a745; }
+
+        h1, h2 { text-align: center; padding-bottom: 10px; margin-bottom: 20px; }
+        label { font-weight: bold; font-size: 1.1em; margin-right: 10px;}
+        .grid-controls { margin-bottom: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .grid-controls input[type="number"] { width: 60px; padding: 8px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
+        .grid-controls button { padding: 8px 15px; font-size: 1em; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #grid-container table { border-collapse: collapse; margin: 10px 0; }
+        #grid-container input { width: 80px; text-align: center; padding: 5px; font-size: 1em; border: 1px solid #ddd; border-radius: 4px;}
+        
+        #calc-button { display: block; width: 100%; padding: 12px; margin-top: 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 18px; transition: background-color 0.3s ease; }
+        .btn-dft { background-color: #007BFF; }
+        .btn-idft { background-color: #28a745; }
+        
+        .steps { border: 1px solid #e0e0e0; padding: 20px; margin-top: 20px; border-radius: 4px; background-color: #fdfdfd; max-height: 400px; overflow-y: auto; }
+        .step { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #ccc; }
+        .step:last-child { border-bottom: none; }
+        
+        .result-table table { border-collapse: collapse; margin: 20px auto; }
+        .result-table th, .result-table td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; }
+        .result-table th.header-dft { background-color: #007BFF; color: white; }
+        .result-table th.header-idft { background-color: #28a745; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="tab-nav">
+            <button id="tab-dft" onclick="switchMode('dft')">DFT 2D</button>
+            <button id="tab-idft" onclick="switchMode('idft')">IDFT 2D</button>
+        </nav>
+
+        <h1 id="main-title"></h1>
+        
+        <div class="input-section">
+            <div class="grid-controls">
+                <label for="rows">Baris (M):</label><input type="number" id="rows" value="2" min="1">
+                <label for="cols">Kolom (N):</label><input type="number" id="cols" value="2" min="1">
+                <button onclick="generateGrid()">Buat/Ubah Grid</button>
+            </div>
+            <label id="input-label"></label>
+            <div id="grid-container"></div>
+            <p id="formula-display"></p>
+            <button id="calc-button"></button>
+        </div>
+
+        <div class="output-section">
+            <h2 id="steps-title"></h2>
+            <div id="calculation-steps" class="steps"></div>
+        </div>
+
+        <div class="output-section">
+            <h2 id="results-title"></h2>
+            <div id="results-container" class="result-table"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'dft';
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const elements = {
+                mainTitle: document.getElementById('main-title'),
+                inputLabel: document.getElementById('input-label'),
+                formula: document.getElementById('formula-display'),
+                calcBtn: document.getElementById('calc-button'),
+                stepsTitle: document.getElementById('steps-title'),
+                resultsTitle: document.getElementById('results-title'),
+                tabDFT: document.getElementById('tab-dft'),
+                tabIDFT: document.getElementById('tab-idft')
+            };
+
+            document.getElementById('calculation-steps').innerHTML = 'Pilih ukuran grid, isi nilainya, lalu klik tombol hitung.';
+            document.getElementById('results-container').innerHTML = '';
+
+            if (mode === 'dft') {
+                elements.tabDFT.className = 'active-dft';
+                elements.tabIDFT.className = '';
+                elements.mainTitle.textContent = 'Kalkulator DFT 2D: Spasial ke Frekuensi';
+                elements.inputLabel.textContent = 'Masukkan nilai f(x,y) pada grid:';
+                elements.formula.innerHTML = '$$ F(u,v) = \\sum_{x=0}^{M-1} \\sum_{y=0}^{N-1} f(x,y) \\cdot e^{-i 2\\pi (\\frac{ux}{M} + \\frac{vy}{N})} $$';
+                elements.calcBtn.textContent = 'Hitung DFT 2D';
+                elements.calcBtn.className = 'btn-dft';
+                elements.calcBtn.onclick = calculate2D_DFT;
+                elements.stepsTitle.textContent = 'Langkah-langkah Perhitungan DFT';
+                elements.resultsTitle.textContent = 'Hasil F(u,v) Spektrum Frekuensi';
+            } else { // idft mode
+                elements.tabDFT.className = '';
+                elements.tabIDFT.className = 'active-idft';
+                elements.mainTitle.textContent = 'Kalkulator IDFT 2D: Frekuensi ke Spasial';
+                elements.inputLabel.textContent = 'Masukkan nilai F(u,v) pada grid:';
+                elements.formula.innerHTML = '$$ f(x,y) = \\frac{1}{MN} \\sum_{u=0}^{M-1} \\sum_{v=0}^{N-1} F(u,v) \\cdot e^{i 2\\pi (\\frac{ux}{M} + \\frac{vy}{N})} $$';
+                elements.calcBtn.textContent = 'Hitung IDFT 2D';
+                elements.calcBtn.className = 'btn-idft';
+                elements.calcBtn.onclick = calculate2D_IDFT;
+                elements.stepsTitle.textContent = 'Langkah-langkah Perhitungan IDFT';
+                elements.resultsTitle.textContent = 'Hasil f(x,y) Sinyal Spasial';
+            }
+            generateGrid();
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+        
+        function generateGrid() {
+            const M = parseInt(document.getElementById('rows').value);
+            const N = parseInt(document.getElementById('cols').value);
+            const container = document.getElementById('grid-container');
+            const sampleDFT = (i, j) => (i % 2 + j % 3) + 1;
+            const sampleIDFT = [['9', '-1-2i'], ['-3', '-1+2i']];
+            
+            let table = '<table>';
+            for (let i = 0; i < M; i++) {
+                table += '<tr>';
+                for (let j = 0; j < N; j++) {
+                    let value = '0';
+                    if (currentMode === 'dft') {
+                        value = sampleDFT(i, j);
+                    } else { // idft
+                        value = (i < 2 && j < 2) ? sampleIDFT[i][j] : '0';
+                    }
+                    table += `<td><input type="text" id="cell-${i}-${j}" value="${value}"></td>`;
+                }
+                table += '</tr>';
+            }
+            table += '</table>';
+            container.innerHTML = table;
+        }
+
+        // --- PARSING & READING ---
+        function parseComplex(s) {
+            s = s.toString().replace(/\s/g, '');
+            if (!s.includes('i')) return { re: parseFloat(s) || 0, im: 0 };
+            if (s === 'i') return { re: 0, im: 1 }; if (s === '-i') return { re: 0, im: -1 };
+            const match = s.match(/([+-]?\d*\.?\d+)?([+-]\d*\.?\d+)i$/);
+            if (!match) {
+                 const reverseMatch = s.match(/([+-]?\d*\.?\d+)i([+-]\d*\.?\d+)/);
+                 if (reverseMatch) return {re: parseFloat(reverseMatch[2]), im: parseFloat(reverseMatch[1] || '1')};
+                 return { re: 0, im: parseFloat(s.replace('i','')) || 0 };
+            }
+            let re = parseFloat(match[1] || 0);
+            let im_str = match[2];
+            if (im_str === '+' || im_str === '') im_str = '1'; if (im_str === '-') im_str = '-1';
+            return { re: re, im: parseFloat(im_str) };
+        }
+
+        function readGrid() {
+            const M = parseInt(document.getElementById('rows').value);
+            const N = parseInt(document.getElementById('cols').value);
+            let matrix = [];
+            for (let i = 0; i < M; i++) {
+                let row = [];
+                for (let j = 0; j < N; j++) {
+                    const val = parseFloat(document.getElementById(`cell-${i}-${j}`).value);
+                    row.push(isNaN(val) ? 0 : val);
+                }
+                matrix.push(row);
+            }
+            return matrix;
+        }
+
+        function readComplexGrid() {
+            const M = parseInt(document.getElementById('rows').value);
+            const N = parseInt(document.getElementById('cols').value);
+            let matrix = [];
+            for (let i = 0; i < M; i++) {
+                let row = [];
+                for (let j = 0; j < N; j++) {
+                    row.push(parseComplex(document.getElementById(`cell-${i}-${j}`).value));
+                }
+                matrix.push(row);
+            }
+            return matrix;
+        }
+
+        // --- CALCULATIONS ---
+        function calculate2D_DFT() {
+            const fxy = readGrid();
+            const M = fxy.length; const N = fxy[0].length;
+            const stepsContainer = document.getElementById('calculation-steps');
+            const resultsContainer = document.getElementById('results-container');
+            stepsContainer.innerHTML = 'Menghitung...';
+            resultsContainer.innerHTML = '';
+            
+            let fullStepsHtml = '';
+            let Fu_v = Array(M).fill(0).map(() => Array(N));
+
+            for (let u = 0; u < M; u++) {
+                for (let v = 0; v < N; v++) {
+                    let sumReal = 0, sumImag = 0;
+                    for (let x = 0; x < M; x++) {
+                        for (let y = 0; y < N; y++) {
+                            const angle = -2 * Math.PI * ((u * x / M) + (v * y / N));
+                            sumReal += fxy[x][y] * Math.cos(angle);
+                            sumImag += fxy[x][y] * Math.sin(angle);
+                        }
+                    }
+                    Fu_v[u][v] = { re: sumReal, im: sumImag };
+                    fullStepsHtml += `<div class="step">
+                        <h4>Perhitungan untuk \\(F(${u},${v})\\):</h4>
+                        <p>$$ F(${u},${v}) = \\sum_{x,y} f(x,y) e^{-i 2\\pi (\\frac{${u}x}{${M}} + \\frac{${v}y}{${N}})} $$</p>
+                        <p>$$ F(${u},${v}) = ${sumReal.toFixed(3)} + i(${sumImag.toFixed(3)}) $$</p>
+                    </div>`;
+                }
+            }
+            stepsContainer.innerHTML = fullStepsHtml;
+            
+            let tableHtml = '<table><thead><tr><th class="header-dft">u\\v</th>';
+            for (let v = 0; v < N; v++) tableHtml += `<th class="header-dft">${v}</th>`;
+            tableHtml += '</tr></thead><tbody>';
+            for (let u = 0; u < M; u++) {
+                tableHtml += `<tr><th class="header-dft">${u}</th>`;
+                for (let v = 0; v < N; v++) {
+                    const val = Fu_v[u][v];
+                    let displayStr = `${val.re.toFixed(2)}`;
+                    if (Math.abs(val.im) > 0.01) {
+                         displayStr += (val.im >= 0 ? ' + ' : ' - ') + `${Math.abs(val.im).toFixed(2)}i`;
+                    }
+                    tableHtml += `<td>\\(${displayStr}\\)</td>`;
+                }
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</tbody></table>';
+            resultsContainer.innerHTML = tableHtml;
+
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        function calculate2D_IDFT() {
+            const Fuv = readComplexGrid();
+            const M = Fuv.length; const N = Fuv[0].length; const MN = M * N;
+            const stepsContainer = document.getElementById('calculation-steps');
+            const resultsContainer = document.getElementById('results-container');
+            stepsContainer.innerHTML = 'Menghitung...';
+            resultsContainer.innerHTML = '';
+            
+            let fullStepsHtml = '';
+            let f_xy = Array(M).fill(0).map(() => Array(N));
+
+            for (let x = 0; x < M; x++) {
+                for (let y = 0; y < N; y++) {
+                    let sumReal = 0, sumImag = 0;
+                    for (let u = 0; u < M; u++) {
+                        for (let v = 0; v < N; v++) {
+                            const angle = 2 * Math.PI * ((u * x / M) + (v * y / N));
+                            const F_uv = Fuv[u][v];
+                            sumReal += F_uv.re * Math.cos(angle) - F_uv.im * Math.sin(angle);
+                            sumImag += F_uv.re * Math.sin(angle) + F_uv.im * Math.cos(angle);
+                        }
+                    }
+                    f_xy[x][y] = { re: sumReal / MN, im: sumImag / MN };
+                    fullStepsHtml += `<div class="step">
+                        <h4>Perhitungan untuk \\(f(${x},${y})\\):</h4>
+                        <p>\\( \\sum_{u,v} F(u,v)e^{...} = ${sumReal.toFixed(3)} + i(${sumImag.toFixed(3)}) \\)</p>
+                        <p>$$ f(${x},${y}) = \\frac{1}{${MN}} \\left( ${sumReal.toFixed(3)} + i(${sumImag.toFixed(3)}) \\right) \\approx ${f_xy[x][y].re.toFixed(3)} $$</p>
+                    </div>`;
+                }
+            }
+            stepsContainer.innerHTML = fullStepsHtml;
+
+            let tableHtml = '<table><thead><tr><th class="header-idft">x\\y</th>';
+            for (let y = 0; y < N; y++) tableHtml += `<th class="header-idft">${y}</th>`;
+            tableHtml += '</tr></thead><tbody>';
+            for (let x = 0; x < M; x++) {
+                tableHtml += `<tr><th class="header-idft">${x}</th>`;
+                for (let y = 0; y < N; y++) {
+                    tableHtml += `<td>\\(${Math.round(f_xy[x][y].re)}\\)</td>`;
+                }
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</tbody></table>';
+            resultsContainer.innerHTML = tableHtml;
+
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        window.onload = () => {
+            switchMode('dft');
+        };
+    </script>
+</body>
+</html>

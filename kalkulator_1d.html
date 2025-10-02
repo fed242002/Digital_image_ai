@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator DFT & IDFT 1D</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; }
+        .container { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 850px; margin: auto; }
+        
+        /* Tab Navigation */
+        .tab-nav { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #ddd; padding-bottom: 15px; }
+        .tab-nav button { background-color: transparent; border: none; font-size: 1.3em; padding: 10px 20px; cursor: pointer; color: #888; transition: color 0.3s, border-bottom 0.3s; border-bottom: 3px solid transparent; }
+        .tab-nav button.active-dft { color: #0056b3; border-bottom-color: #007BFF; }
+        .tab-nav button.active-idft { color: #218838; border-bottom-color: #28a745; }
+
+        h1, h2 { text-align: center; padding-bottom: 10px; margin-bottom: 20px; }
+        .input-section, .output-section { margin-bottom: 30px; }
+        label { font-weight: bold; font-size: 1.1em; }
+        input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-top: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 1em; }
+        
+        /* Dynamic Button */
+        #calc-button { display: block; width: 100%; padding: 12px; margin-top: 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 18px; transition: background-color 0.3s ease; }
+        .btn-dft { background-color: #007BFF; }
+        .btn-dft:hover { background-color: #0056b3; }
+        .btn-idft { background-color: #28a745; }
+        .btn-idft:hover { background-color: #218838; }
+
+        .steps { border: 1px solid #e0e0e0; padding: 20px; margin-top: 20px; border-radius: 4px; background-color: #fdfdfd; max-height: 400px; overflow-y: auto; }
+        .step { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #ccc; }
+        .step:last-child { border-bottom: none; }
+        .result-box { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; margin-top: 10px; }
+        .result-item { padding: 15px; min-width: 100px; text-align: center; border-radius: 8px; }
+        .result-dft { border: 2px solid #007BFF; background-color: #f0f8ff; }
+        .result-idft { border: 2px solid #28a745; background-color: #f0fff4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="tab-nav">
+            <button id="tab-dft" onclick="switchMode('dft')">DFT (f(x) &rarr; F(u))</button>
+            <button id="tab-idft" onclick="switchMode('idft')">IDFT (F(u) &rarr; f(x))</button>
+        </nav>
+
+        <h1 id="main-title"></h1>
+        
+        <div class="input-section">
+            <label id="input-label" for="main-input"></label>
+            <input type="text" id="main-input">
+            <p id="formula-display"></p>
+            <button id="calc-button"></button>
+        </div>
+
+        <div class="output-section">
+            <h2 id="steps-title"></h2>
+            <div id="calculation-steps" class="steps">Pilih mode dan klik tombol hitung.</div>
+        </div>
+
+        <div class="output-section">
+            <h2 id="results-title"></h2>
+            <div id="results-box" class="result-box"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- UI SWITCHING LOGIC ---
+        function switchMode(mode) {
+            const mainTitle = document.getElementById('main-title');
+            const inputLabel = document.getElementById('input-label');
+            const mainInput = document.getElementById('main-input');
+            const formulaDisplay = document.getElementById('formula-display');
+            const calcButton = document.getElementById('calc-button');
+            const stepsTitle = document.getElementById('steps-title');
+            const resultsTitle = document.getElementById('results-title');
+            const tabDFT = document.getElementById('tab-dft');
+            const tabIDFT = document.getElementById('tab-idft');
+
+            document.getElementById('calculation-steps').innerHTML = 'Pilih mode dan klik tombol hitung.';
+            document.getElementById('results-box').innerHTML = '';
+
+            if (mode === 'dft') {
+                tabDFT.className = 'active-dft';
+                tabIDFT.className = '';
+                mainTitle.innerHTML = 'Kalkulator DFT: Spasial ke Frekuensi';
+                inputLabel.innerHTML = 'Masukkan nilai f(x) (dipisahkan koma):';
+                mainInput.value = '1, 4, 2, 2';
+                formulaDisplay.innerHTML = '$$ F(u) = \\sum_{x=0}^{M-1} f(x) \\cdot e^{-i \\frac{2\\pi ux}{M}} $$';
+                calcButton.innerHTML = 'Hitung DFT';
+                calcButton.className = 'btn-dft';
+                calcButton.onclick = calculateDFT;
+                stepsTitle.innerHTML = 'Langkah-langkah Perhitungan DFT';
+                resultsTitle.innerHTML = 'Hasil F(u) Spektrum Gelombang';
+            } else {
+                tabDFT.className = '';
+                tabIDFT.className = 'active-idft';
+                mainTitle.innerHTML = 'Kalkulator IDFT: Frekuensi ke Spasial';
+                inputLabel.innerHTML = 'Masukkan nilai F(u) (cth: 9, -1-2i, -3, -1+2i):';
+                mainInput.value = '9, -1-2i, -3, -1+2i';
+                formulaDisplay.innerHTML = '$$ f(x) = \\frac{1}{M} \\sum_{u=0}^{M-1} F(u) \\cdot e^{i \\frac{2\\pi ux}{M}} $$';
+                calcButton.innerHTML = 'Hitung IDFT';
+                calcButton.className = 'btn-idft';
+                calcButton.onclick = calculateIDFT;
+                stepsTitle.innerHTML = 'Langkah-langkah Perhitungan IDFT';
+                resultsTitle.innerHTML = 'Hasil f(x) Sinyal Asli/Spasial';
+            }
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        // --- CALCULATION LOGIC ---
+
+        function calculateDFT() {
+            const fx = document.getElementById('main-input').value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+            const M = fx.length;
+            if (M === 0) return;
+
+            const stepsContainer = document.getElementById('calculation-steps');
+            const resultsContainer = document.getElementById('results-box');
+            stepsContainer.innerHTML = '';
+            resultsContainer.innerHTML = '';
+            let fullStepsHtml = '';
+
+            for (let u = 0; u < M; u++) {
+                let stepHtml = `<div class="step"><h3>Perhitungan untuk \\(F(${u})\\):</h3>`;
+                stepHtml += `$$ F(${u}) = \\sum_{x=0}^{${M - 1}} f(x) \\cdot e^{-i \\frac{2\\pi \\cdot ${u} \\cdot x}{${M}}} $$`;
+                
+                let realPart = 0, imagPart = 0, sumDetails = [];
+                let calculationDetails = '';
+
+                for (let x = 0; x < M; x++) {
+                    const angle = -2 * Math.PI * u * x / M;
+                    const cosAngle = Math.cos(angle);
+                    const sinAngle = Math.sin(angle);
+                    
+                    const currentReal = fx[x] * cosAngle;
+                    const currentImag = fx[x] * sinAngle;
+
+                    realPart += currentReal;
+                    imagPart += currentImag;
+
+                    calculationDetails += `\\( x=${x}: \\quad ${fx[x]} \\cdot e^{-i \\frac{2\\pi(${u})(${x})}{${M}}} = ${fx[x]} \\left(\\cos(${angle.toFixed(3)}) + i\\sin(${angle.toFixed(3)})\\right) = ${currentReal.toFixed(3)} + i(${currentImag.toFixed(3)}) \\)<br>`;
+                    sumDetails.push(`\\left(${currentReal.toFixed(3)} + i(${currentImag.toFixed(3)})\\right)`);
+                }
+                
+                stepHtml += `<p>Menggunakan Rumus Euler \\(e^{i\\theta} = \\cos\\theta + i\\sin\\theta\\):</p>${calculationDetails}`;
+                stepHtml += `<p>Menjumlahkan semua komponen:</p>`;
+                stepHtml += `$$ F(${u}) = ${sumDetails.join(' + ')} $$`;
+                stepHtml += `$$ F(${u}) = ${realPart.toFixed(3)} + i(${imagPart.toFixed(3)}) $$`;
+                stepHtml += `</div>`;
+                fullStepsHtml += stepHtml;
+
+                const finalReal = Math.round(realPart * 100) / 100;
+                const finalImag = Math.round(imagPart * 100) / 100;
+
+                let resultString = `${finalReal}`;
+                if (Math.abs(finalImag) > 0.001) {
+                    resultString += (finalImag > 0 ? ' + ' : ' - ') + `${Math.abs(finalImag)}i`;
+                }
+                
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item result-dft';
+                resultItem.innerHTML = `<b>u=${u}</b><br>\\( ${resultString} \\)`;
+                resultsContainer.appendChild(resultItem);
+            }
+
+            stepsContainer.innerHTML = fullStepsHtml;
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        function parseComplex(s) {
+            s = s.replace(/\s/g, '');
+            if (s.includes('i')) {
+                if (s === 'i') return { re: 0, im: 1 }; if (s === '-i') return { re: 0, im: -1 };
+                const match = s.match(/([+-]?\d*\.?\d*)([+-]?\d*\.?\d*)i/);
+                if (match) {
+                    let re = parseFloat(match[1] || 0); let im_str = match[2];
+                    if (im_str === '' || im_str === '+') im_str = '1'; if (im_str === '-') im_str = '-1';
+                    return { re: re, im: parseFloat(im_str) };
+                }
+            } return { re: parseFloat(s), im: 0 };
+        }
+
+        function calculateIDFT() {
+            const Fu = document.getElementById('main-input').value.split(',').map(s => parseComplex(s.trim()));
+            const M = Fu.length;
+            if (M === 0) return;
+
+            const stepsContainer = document.getElementById('calculation-steps');
+            const resultsContainer = document.getElementById('results-box');
+            stepsContainer.innerHTML = '';
+            resultsContainer.innerHTML = '';
+            let fullStepsHtml = '';
+
+            for (let x = 0; x < M; x++) {
+                let stepHtml = `<div class="step"><h3>Perhitungan untuk \\(f(${x})\\):</h3>`;
+                stepHtml += `$$ f(${x}) = \\frac{1}{${M}} \\sum_{u=0}^{${M - 1}} F(u) \\cdot e^{i \\frac{2\\pi u x}{${M}}} $$`;
+                
+                let sumReal = 0, sumImag = 0;
+                let calculationDetails = '';
+
+                for (let u = 0; u < M; u++) {
+                    const F_u = Fu[u];
+                    const angle = 2 * Math.PI * u * x / M;
+                    const cosAngle = Math.cos(angle);
+                    const sinAngle = Math.sin(angle);
+                    
+                    const termReal = F_u.re * cosAngle - F_u.im * sinAngle;
+                    const termImag = F_u.re * sinAngle + F_u.im * cosAngle;
+
+                    sumReal += termReal;
+                    sumImag += termImag;
+
+                    calculationDetails += `\\( u=${u}: \\quad (${F_u.re} ${F_u.im < 0 ? '-' : '+'} i${Math.abs(F_u.im)}) \\cdot e^{i \\frac{2\\pi(${u})(${x})}{${M}}} \\)`;
+                    calculationDetails += `\\( = (${F_u.re} ${F_u.im < 0 ? '-' : '+'} i${Math.abs(F_u.im)}) \\left(${cosAngle.toFixed(3)} + i\\sin(${sinAngle.toFixed(3)})\\right) = ${termReal.toFixed(3)} + i(${termImag.toFixed(3)}) \\)<br>`;
+                }
+
+                const finalReal = sumReal / M;
+
+                stepHtml += `<p>Detail perkalian kompleks:</p>${calculationDetails}`;
+                stepHtml += `<p>Menjumlahkan semua komponen:</p>`;
+                stepHtml += `$$ \\sum = ${sumReal.toFixed(3)} + i(${sumImag.toFixed(3)}) $$`;
+                stepHtml += `<p>Membagi dengan M=${M}:</p>`;
+                stepHtml += `$$ f(${x}) = \\frac{1}{${M}} \\left( ${sumReal.toFixed(3)} + i(${sumImag.toFixed(3)}) \\right) \\approx ${finalReal.toFixed(3)} $$`;
+                stepHtml += `</div>`;
+                fullStepsHtml += stepHtml;
+
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item result-idft';
+                resultItem.innerHTML = `<b>x=${x}</b><br>\\( ${Math.round(finalReal)} \\)`;
+                resultsContainer.appendChild(resultItem);
+            }
+            stepsContainer.innerHTML = fullStepsHtml;
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        // Initialize with DFT mode
+        window.onload = () => {
+            switchMode('dft');
+        };
+    </script>
+</body>
+</html>
